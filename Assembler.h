@@ -140,7 +140,7 @@ private:
 		currentAddress_ += 2;
 	}
 public:
-	Assembler(size_t baseAddress) : baseAddress_(baseAddress) {}
+	Assembler(size_t baseAddress) : baseAddress_(baseAddress), currentAddress_(baseAddress) {}
 	~Assembler() {}
 
 	std::vector<uint8_t> &&finalize()

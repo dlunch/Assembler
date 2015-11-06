@@ -140,14 +140,38 @@ private:
 		currentAddress_ += 2;
 	}
 public:
-	Assembler(size_t baseAddress);
-	~Assembler();
+	Assembler(size_t baseAddress) : baseAddress_(baseAddress) {}
+	~Assembler() {}
 
-	std::vector<uint8_t> &&finalize();
+	std::vector<uint8_t> &&finalize()
+	{
+		return std::move(buffer_);
+	}
 
-	Assembler &push(uint32_t operand);
-	Assembler &call(uint32_t targetAbs);
-	Assembler &ret(uint16_t stack);
+	Assembler &push(uint32_t operand)
+	{
+		insertOpImm(0x68, operand);
+
+		return *this;
+	}
+
+	Assembler &call(uint32_t targetAbs)
+	{
+		size_t addr = currentAddress_ + 5;
+		insertOpImm(0xe8, static_cast<int32_t>(targetAbs - addr));
+
+		return *this;
+	}
+
+	Assembler &ret(uint16_t stack)
+	{
+		if(stack)
+			insertOpImm(0xc2, stack);
+		else
+			insertOp(0xc3);
+
+		return *this;
+	}
 	
 	template<int size, typename reg1, typename reg2>
 	Assembler &push(const Memory<size, reg1, reg2>&);
@@ -189,6 +213,19 @@ public:
 		return *this;
 	}
 	
-	Assembler &insertData(uint32_t data);
-	Assembler &insertData(const std::initializer_list<uint8_t> &data);
+	Assembler &insertData(uint32_t data)
+	{
+		insertBuffer(data);
+		currentAddress_ += 4;
+
+		return *this;
+	}
+
+	Assembler &insertData(const std::initializer_list<uint8_t> &data)
+	{
+		buffer_.insert(buffer_.end(), data.begin(), data.end());
+
+		currentAddress_ += data.size();
+		return *this;
+	}
 };

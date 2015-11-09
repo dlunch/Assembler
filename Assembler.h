@@ -67,9 +67,9 @@ constexpr GPR<8, 15> r15{};
 template<int size, typename reg1, typename reg2>
 struct Memory
 {
-	int displacement;
-	int scale;
-	Memory(int displacement_, int scale_) : displacement(displacement_) {}
+	const int displacement;
+	const int scale;
+	Memory(const int displacement_, const int scale_) : displacement(displacement_), scale(scale_) {}
 };
 
 template<int s, int i>

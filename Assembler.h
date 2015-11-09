@@ -193,7 +193,10 @@ public:
 	template<int size, int i, typename reg2>
 	Assembler &push(const Memory<size, const GPR<4, i> &, reg2> &m)
 	{
-		insertOpImm(0xff, 0xb0 + i, (int32_t)m.displacement); //there's ff 70 for disp8, but using only 32bit makes code cleaner.. and we have a lot of memory..
+		if(m.displacement < 128 && m.displacement >= -128)
+			insertOpImm(0xff, 0x70 + i, (int8_t)m.displacement);
+		else
+			insertOpImm(0xff, 0xb0 + i, (int32_t)m.displacement);
 		return *this;
 	}
 	

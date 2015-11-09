@@ -162,6 +162,17 @@ public:
 
 		return *this;
 	}
+	
+	Assembler &jmp(uint32_t targetAbs)
+	{
+		int32_t diff = targetAbs - (static_cast<int32_t>(currentAddress_) + 2);
+		if(diff < 128 && diff >= -128)
+			insertOpImm(0xeb, static_cast<int8_t>(targetAbs - (currentAddress_ + 2)));
+		else
+			insertOpImm(0xe9, static_cast<int32_t>(targetAbs - (currentAddress_ + 5)));
+		
+		return *this;
+	}
 
 	Assembler &ret(uint16_t stack)
 	{

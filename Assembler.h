@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <list>
 
 //some codes are copied from https://github.com/mattbierner/Template-Assembly (MIT)
 
@@ -85,6 +86,12 @@ constexpr struct
 	{
 		return mem;
 	}
+
+	template<int s, int i>
+	constexpr auto operator[](const GPR<s, i> &r) const
+	{
+		return Memory<s, GPR<s, i>, std::nullptr_t>{0, 1};
+	}
 	
 	auto operator [](int displacement) const
 	{
@@ -97,6 +104,8 @@ class Assembler
 {
 private:
 	std::vector<uint8_t> buffer_;
+	std::map<std::string, size_t> labels_;
+	std::list<std::pair<size_t, std::string>> unresolvedLabels_;
 	size_t baseAddress_;
 	size_t currentAddress_;
 
@@ -134,10 +143,28 @@ private:
 	
 	void insertOp(uint8_t opcode1, uint8_t opcode2)
 	{
-		buffer_.push_back(opcode1);
-		buffer_.push_back(opcode2);
+		buffer_.insert(buffer_.end(), {opcode1, opcode2});
 		
 		currentAddress_ += 2;
+	}
+
+	void insertOp(uint8_t opcode1, uint8_t opcode2, uint8_t opcode3)
+	{
+		buffer_.insert(buffer_.end(), {opcode1, opcode2, opcode3});
+
+		currentAddress_ += 3;
+	}
+
+	Assembler &addJccNear(uint8_t op, const std::string &label)
+	{
+		unresolvedLabels_.push_back(std::make_pair(currentAddress_, label));
+		insertOpImm(0x0f, op, static_cast<uint32_t>(0));
+		return *this;
+	}
+
+	void resolveLabels()
+	{
+		
 	}
 public:
 	Assembler(size_t baseAddress) : baseAddress_(baseAddress), currentAddress_(baseAddress) {}
@@ -145,12 +172,25 @@ public:
 
 	std::vector<uint8_t> &&finalize()
 	{
+		resolveLabels();
+
 		return std::move(buffer_);
 	}
 
 	Assembler &push(uint32_t operand)
 	{
 		insertOpImm(0x68, operand);
+
+		return *this;
+	}
+
+	template<int s, int i>
+	Assembler &push(GPR<s, i>);
+
+	template<int i>
+	Assembler &push(GPR<4, i>)
+	{
+		insertOp(0x50 + i);
 
 		return *this;
 	}
@@ -183,11 +223,25 @@ public:
 
 		return *this;
 	}
+
+	template<int s, int i>
+	Assembler &cmp(GPR<s, i>, uint32_t);
+
+	template<int i>
+	Assembler &cmp(GPR<4, 0>, uint32_t operand) //cmp eax, immm32
+	{
+		insertOpImm(0x3d, operand);
+
+		return *this;
+	}
+
 	
 	template<int size, typename reg1, typename reg2>
 	Assembler &push(const Memory<size, reg1, reg2>&);
 	template<int size, typename reg1, typename reg2, int s, int i>
 	Assembler &mov(const Memory<size, reg1, reg2> &, GPR<s, i> operand);
+	template<int size, typename reg1, typename reg2, int s, int i>
+	Assembler &mov(GPR<s, i> operand, const Memory<size, reg1, reg2> &);
 	template<int s, int i>
 	Assembler &mov(GPR<s, i>, uint32_t);
 	template<int s1, int i1, int s2, int i2>
@@ -226,6 +280,29 @@ public:
 		
 		return *this;
 	}
+
+	template<>
+	Assembler &mov(GPR<4, 0> operand, const Memory<4, GPR<4, 4>, std::nullptr_t> &)
+	{
+		insertOp(0x8b, 0x04, 0x24); //TODO..
+	}
+
+	Assembler &jg(const std::string &label)
+	{
+		return addJccNear(0x8f, label);
+	}
+
+	Assembler &jl(const std::string &label)
+	{
+		return addJccNear(0x8c, label);
+	}
+
+	Assembler &label(const std::string &name)
+	{
+		labels_[name] = currentAddress_;
+		return *this;
+	}
+
 	
 	Assembler &insertData(uint32_t data)
 	{

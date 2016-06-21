@@ -226,7 +226,7 @@ public:
 	Assembler &mov(GPR<s1, i1>, GPR<s2, i2>);
 
 	template<int size>
-	Assembler &mov(Memory<size, std::nullptr_t, std::nullptr_t> m, GPR<4, 0>)
+	Assembler &mov(const Memory<size, std::nullptr_t, std::nullptr_t> &m, GPR<4, 0>)
 	{
 		insertOpImm(0xa3, m.displacement);
 		
@@ -234,7 +234,7 @@ public:
 	}
 
 	template<int size>
-	Assembler &mov(Memory<size, std::nullptr_t, std::nullptr_t> m, GPR<8, 0>)
+	Assembler &mov(const Memory<size, std::nullptr_t, std::nullptr_t> &m, GPR<8, 0>)
 	{
 		insertOpImm(EncodeREX<1, 0, 0, 0>::value, 0x89, 0x04, 0x25, m.displacement);
 
@@ -254,7 +254,7 @@ public:
 	}
 	
 	template<int s, int i, typename T>
-	Assembler &mov(GPR<s, i> reg, T operand)
+	Assembler &mov(const GPR<s, i> &reg, T operand)
 	{
 		static_assert(bit / 8 == s, "Error");
 

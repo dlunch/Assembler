@@ -92,7 +92,13 @@ constexpr struct
 	}
 } _ {};
 
+template<bool w, bool r, bool x, bool b>
+struct EncodeREX
+{
+	static const uint8_t value = 0x40 | (8 * static_cast<int>(w)) | (4 * static_cast<int>(r)) | (2 * static_cast<int>(x)) | static_cast<int>(b);
+};
 
+template<int bit>
 class Assembler
 {
 private:
@@ -115,6 +121,7 @@ private:
 
 		currentAddress_ += 1 + sizeof(T);
 	}
+
 	template<typename T>
 	void insertOpImm(uint8_t opcode1, uint8_t opcode2, const T &value)
 	{
@@ -123,6 +130,15 @@ private:
 		insertBuffer(value);
 
 		currentAddress_ += 2 + sizeof(T);
+	}
+
+	template<typename T>
+	void insertOpImm(uint8_t opcode1, uint8_t opcode2, uint8_t opcode3, uint8_t opcode4, const T &value)
+	{
+		buffer_.insert(buffer_.end(), {opcode1, opcode2, opcode3, opcode4});
+		insertBuffer(value);
+
+		currentAddress_ += 4 + sizeof(T);
 	}
 	
 	void insertOp(uint8_t opcode)
@@ -155,14 +171,32 @@ public:
 		return *this;
 	}
 
+	template<typename = std::enable_if<bit == 32>::type>
 	Assembler &call(uint32_t targetAbs)
 	{
-		size_t addr = currentAddress_ + 5;
+		uint32_t addr = currentAddress_ + 5;
 		insertOpImm(0xe8, static_cast<int32_t>(targetAbs - addr));
 
 		return *this;
 	}
-	
+
+	template<typename = std::enable_if<bit == 64>::type>
+	Assembler &call(uint64_t targetAbs)
+	{
+		size_t addr = currentAddress_ + 5;
+		int64_t diff = static_cast<int64_t>(targetAbs - addr);
+
+		if(diff > 2147483647 || diff < -2147483647)
+		{
+			mov(rax, targetAbs);
+			insertOp(0xff, 0xd0); //call rax  TODO change to generic version
+		}
+		else
+			insertOpImm(0xe8, static_cast<int32_t>(targetAbs - addr));
+
+		return *this;
+	}
+
 	Assembler &jmp(uint32_t targetAbs)
 	{
 		int32_t diff = targetAbs - (static_cast<int32_t>(currentAddress_) + 2);
@@ -188,8 +222,6 @@ public:
 	Assembler &push(const Memory<size, reg1, reg2>&);
 	template<int size, typename reg1, typename reg2, int s, int i>
 	Assembler &mov(const Memory<size, reg1, reg2> &, GPR<s, i> operand);
-	template<int s, int i>
-	Assembler &mov(GPR<s, i>, uint32_t);
 	template<int s1, int i1, int s2, int i2>
 	Assembler &mov(GPR<s1, i1>, GPR<s2, i2>);
 
@@ -200,10 +232,20 @@ public:
 		
 		return *this;
 	}
-	
-	template<int size, int i, typename reg2>
-	Assembler &push(const Memory<size, const GPR<4, i> &, reg2> &m)
+
+	template<int size>
+	Assembler &mov(Memory<size, std::nullptr_t, std::nullptr_t> m, GPR<8, 0>)
 	{
+		insertOpImm(EncodeREX<1, 0, 0, 0>::value, 0x89, 0x04, 0x25, m.displacement);
+
+		return *this;
+	}
+
+	template<int size, int i, int s, typename reg2>
+	Assembler &push(const Memory<size, const GPR<s, i> &, reg2> &m)
+	{
+		if(bit == 64 && s == 4)
+			insertOp(0x67);
 		if(m.displacement < 128 && m.displacement >= -128)
 			insertOpImm(0xff, 0x70 + i, (int8_t)m.displacement);
 		else
@@ -211,17 +253,25 @@ public:
 		return *this;
 	}
 	
-	template<int i>
-	Assembler &mov(GPR<4, i> reg, uint32_t operand)
+	template<int s, int i, typename T>
+	Assembler &mov(GPR<s, i> reg, T operand)
 	{
-		insertOpImm(0xb8 + i, operand);
+		static_assert(bit / 8 == s, "Error");
+
+		if(bit == 64 && s == 8)
+			insertOpImm(EncodeREX<1, 0, 0, 0>::value, 0xb8 + i, (uint64_t)operand);
+		else if(bit == 32 && s == 4)
+			insertOpImm(0xb8 + i, (uint32_t)operand);
+			
 		
 		return *this;
 	}
 	
-	template<int i1>
-	Assembler &mov(GPR<4, i1>, GPR<4, 4>) //TODO modrm..
+	template<int i1, int s>
+	Assembler &mov(GPR<s, i1>, GPR<s, 4>) //TODO modrm..
 	{
+		if(s == 8 && bit == 64)
+			insertOp(EncodeREX<1, 0, 0, 0>::value);
 		insertOp(0x89, 0xe0 + i1);
 		
 		return *this;

@@ -174,7 +174,7 @@ public:
 	template<typename = std::enable_if<bit == 32>::type>
 	Assembler &call(uint32_t targetAbs)
 	{
-		uint32_t addr = currentAddress_ + 5;
+		uint32_t addr = static_cast<uint32_t>(currentAddress_ + 5);
 		insertOpImm(0xe8, static_cast<int32_t>(targetAbs - addr));
 
 		return *this;

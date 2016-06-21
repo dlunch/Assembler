@@ -208,7 +208,7 @@ public:
 		return *this;
 	}
 
-	Assembler &ret(uint16_t stack)
+	Assembler &ret(uint16_t stack = 0)
 	{
 		if(stack)
 			insertOpImm(0xc2, stack);
@@ -275,6 +275,22 @@ public:
 		insertOp(0x89, 0xe0 + i1);
 		
 		return *this;
+	}
+
+	template<int s, int i>
+	Assembler &sub(GPR<s, i>, uint8_t value)
+	{
+		if(s == 8 && bit == 64)
+			insertOp(EncodeREX<1, 0, 0, 0>::value);
+		insertOpImm(0x83, 0xe8 + i, value);
+	}
+
+	template<int s, int i>
+	Assembler &add(GPR<s, i>, uint8_t value)
+	{
+		if(s == 8 && bit == 64)
+			insertOp(EncodeREX<1, 0, 0, 0>::value);
+		insertOpImm(0x83, 0xc0 + i, value);
 	}
 	
 	Assembler &insertData(uint32_t data)

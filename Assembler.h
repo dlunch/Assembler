@@ -85,6 +85,12 @@ constexpr struct
 	{
 		return mem;
 	}
+
+	template<int i, int s>
+	constexpr auto operator[](const GPR<i, s> &) const
+	{
+		return Memory<0, GPR<i, s>, std::nullptr_t>{0, 0};
+	}
 	
 	auto operator [](int displacement) const
 	{
@@ -226,7 +232,7 @@ public:
 	Assembler &mov(GPR<s1, i1>, GPR<s2, i2>);
 
 	template<int size>
-	Assembler &mov(const Memory<size, std::nullptr_t, std::nullptr_t> &m, GPR<4, 0>)
+	Assembler &mov(const Memory<size, std::nullptr_t, std::nullptr_t> &m, GPR<4, 0>) //mov rax, disp
 	{
 		insertOpImm(0xa3, m.displacement);
 		
@@ -234,9 +240,17 @@ public:
 	}
 
 	template<int size>
-	Assembler &mov(const Memory<size, std::nullptr_t, std::nullptr_t> &m, GPR<8, 0>)
+	Assembler &mov(const Memory<size, std::nullptr_t, std::nullptr_t> &m, GPR<8, 0>) //mov [disp], rax
 	{
 		insertOpImm(EncodeREX<1, 0, 0, 0>::value, 0x89, 0x04, 0x25, m.displacement);
+
+		return *this;
+	}
+
+	template<int size, int i, int s>
+	Assembler &mov(const Memory<size, GPR<s, i>, std::nullptr_t> &m, GPR<8, 0>) //mov [GPR], rax
+	{
+		insertOpImm(EncodeREX<1, 0, 0, 0>::value, 0x89, 0x00 + i);
 
 		return *this;
 	}
@@ -267,13 +281,22 @@ public:
 		return *this;
 	}
 	
-	template<int i1, int s>
-	Assembler &mov(GPR<s, i1>, GPR<s, 4>) //TODO modrm..
+	template<int i, int s>
+	Assembler &mov(GPR<s, i>, GPR<s, 4>) //TODO modrm..
 	{
 		if(s == 8 && bit == 64)
 			insertOp(EncodeREX<1, 0, 0, 0>::value);
-		insertOp(0x89, 0xe0 + i1);
+		insertOp(0x89, 0xe0 + i);
 		
+		return *this;
+	}
+
+	template<int i>
+	Assembler &mov(GPR<8, i>, GPR<8, 8>) //TODO modrm..
+	{
+		insertOp(EncodeREX<1, 1, 0, 0>::value);
+		insertOp(0x89, 0xc0 + i);
+
 		return *this;
 	}
 
@@ -283,6 +306,8 @@ public:
 		if(s == 8 && bit == 64)
 			insertOp(EncodeREX<1, 0, 0, 0>::value);
 		insertOpImm(0x83, 0xe8 + i, value);
+
+		return *this;
 	}
 
 	template<int s, int i>
@@ -291,6 +316,8 @@ public:
 		if(s == 8 && bit == 64)
 			insertOp(EncodeREX<1, 0, 0, 0>::value);
 		insertOpImm(0x83, 0xc0 + i, value);
+
+		return *this;
 	}
 	
 	Assembler &insertData(uint32_t data)

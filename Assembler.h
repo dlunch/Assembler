@@ -292,7 +292,7 @@ public:
 	template<int i, typename T, typename = std::enable_if<bit == 64 && i >= 8>::type> //mov r8, 12341423
 	Assembler &mov(const GPR<8, i> &reg, T operand)
 	{
-		insertOpImm(EncodeREX<1, 1, 0, 0>::value, 0xb8 + i - 8, (uint64_t)operand);
+		insertOpImm(EncodeREX<1, 0, 0, 1>::value, 0xb8 + i - 8, (uint64_t)operand);
 
 		return *this;
 	}

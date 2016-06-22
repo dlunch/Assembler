@@ -161,6 +161,15 @@ private:
 		
 		currentAddress_ += 2;
 	}
+
+	void insertOp(uint8_t opcode1, uint8_t opcode2, uint8_t opcode3)
+	{
+		buffer_.push_back(opcode1);
+		buffer_.push_back(opcode2);
+		buffer_.push_back(opcode3);
+
+		currentAddress_ += 3;
+	}
 public:
 	Assembler(size_t baseAddress) : baseAddress_(baseAddress), currentAddress_(baseAddress) {}
 	~Assembler() {}
@@ -250,7 +259,7 @@ public:
 	template<int size, int i, int s>
 	Assembler &mov(const Memory<size, GPR<s, i>, std::nullptr_t> &m, GPR<8, 0>) //mov [GPR], rax
 	{
-		insertOpImm(EncodeREX<1, 0, 0, 0>::value, 0x89, 0x00 + i);
+		insertOp(EncodeREX<1, 0, 0, 0>::value, 0x89, 0x00 + i);
 
 		return *this;
 	}
@@ -320,10 +329,11 @@ public:
 		return *this;
 	}
 	
-	Assembler &insertData(uint32_t data)
+	template<typename T>
+	Assembler &insertData(T data)
 	{
 		insertBuffer(data);
-		currentAddress_ += 4;
+		currentAddress_ += sizeof(T);
 
 		return *this;
 	}

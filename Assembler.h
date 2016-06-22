@@ -329,11 +329,20 @@ public:
 		return *this;
 	}
 	
-	template<typename T>
-	Assembler &insertData(T data)
+	template<typename = std::enable_if<bit == 32>::type>
+	Assembler &insertData(uint32_t data)
 	{
 		insertBuffer(data);
-		currentAddress_ += sizeof(T);
+		currentAddress_ += 4;
+
+		return *this;
+	}
+
+	template<typename = std::enable_if<bit == 64>::type>
+	Assembler &insertData(uint64_t data)
+	{
+		insertBuffer(data);
+		currentAddress_ += 8;
 
 		return *this;
 	}
